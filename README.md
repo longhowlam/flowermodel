@@ -1,4 +1,5 @@
 # flowermodel
+
 shiny app to predict flower species.
 
 First a deeplearning model with pytorch is created, see the jupyter notebook. A Resnet is finetuned on flower images.

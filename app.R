@@ -11,16 +11,48 @@ library(miniUI)
 library(jpeg)
 library(dplyr)
 library(DT)
-library(text2vec)
-library(jsonlite)
 library(reticulate)
 
 ##### Initals / startup code #################################################
 
+#setup python env en imports
 reticulate::use_condaenv("my_py36")
+torch = import("torch")
+Image = import("PIL")$Image
 
+#load the pytorch model
 flowermodel  = torch$load("data/flowermodel.pt")
 
+# helper function to use a pytorch model for scoring in shiny
+TorchPrediction = function(model, picture){
+  transforms = import("torchvision")$transforms
+  
+  preprocess = transforms$Compose(c(
+    transforms$Resize(256L),
+    transforms$CenterCrop(224L),
+    transforms$ToTensor(),
+    transforms$Normalize(c(0.485, 0.456, 0.406), c(0.229, 0.224, 0.225))
+  ))
+  
+  IMG = Image$open(picture)
+  inputs = preprocess(IMG)
+  inputs$unsqueeze_(0L)
+  outputs = flowermodel(inputs)
+  
+  sm = torch$nn$Softmax()
+  probabilities = sm(outputs) 
+  P = t(probabilities$detach()$numpy())[,1]
+  
+  results = tibble::tibble(Prob = P, flower = c( 'bluebell', 'crocus', 'daffodil', 'lilyvally', 'snowdrop'))
+  results$image = paste0(
+    "<img src='",
+    results$flower, ".jpg",
+    "'",
+    "height='80' width='90' </img>"
+  )
+  
+  results
+}
 
 #### MINIPAGE #################################################################
 
@@ -46,7 +78,7 @@ ui <- miniPage(
       "Take_picture", icon = icon("sliders"),
       miniContentPanel(
         fileInput('file1', 'Choose an image (max 5MB)'),
-        img(SRC="image_0112.jpg", height = 340)
+        img(SRC="coverimage.png", height = 340)
       )
     ),
  
@@ -58,14 +90,6 @@ ui <- miniPage(
         imageOutput("plaatje")
       )
     ),
-    
-    #### Resultaat tab ############
-#    miniTabPanel(
-#      "Resultaat", icon = icon("table"),
-#      miniContentPanel(
-#        verbatimTextOutput("ResultaatOut")
-#      )
-#    ),
     
     #### Tabel resultaat ###########
     miniTabPanel(
@@ -122,8 +146,12 @@ server <- function(input, output, session) {
   #### intro ####
   output$intro <- renderUI({
     list(
-      h4("When uncertain of a flower species, take a picture of the flower, then the picture will be scored using a fine tuned resnet model"), 
-      img(SRC="image_0112.jpg", height = 340)
+      h4("When uncertain of a flower species, take a picture of the flower, 
+         then the picture will be scored using a fine tuned resnet model"), 
+      h4("With pytorch a resnet model was finetuned on flower images, 
+         then this model is used in this shiny app"), 
+      
+      img(SRC="coverimage.png", height = 340)
     )
   })
   
@@ -131,22 +159,20 @@ server <- function(input, output, session) {
   #### plaatje ####
   output$plaatje <- renderImage({
     
-    inFile = input$file1
-    print(inFile)
-    if (!is.null(inFile))
+    if (!is.null(input$file1))
     {
       
       width  <- session$clientData$output_plaatje_width
       height <- session$clientData$output_plaatje_height
       list(
-        src = inFile$datapath,
+        src = input$file1$datapath,
         width=width,
         height=height
       )
     }
     else
     {
-      list(src="www/kast.png")
+      list(src="www/picturetaken.jpg")
     }
   },
   deleteFile = FALSE
@@ -162,12 +188,27 @@ server <- function(input, output, session) {
   
   #### ResultaatTabel ####
   output$ResultaatTabel =  renderDataTable({
-   
-    out = ProcessImage()
+    
+    out = ProcessImage() %>% arrange(desc(Prob))
+    
+    if (!is.null(input$file1))
+    {
+      inFile = input$file1
+      src = inFile$datapath
+      file.copy(src, "www/picturetaken.jpg" , overwrite = TRUE)
+    }
+    
+    out$image_to_score = paste0(
+      "<img src='",
+      "picturetaken.jpg",
+      "'",
+      "height='80' width='90' </img>"
+    )
+    
     datatable(
       escape = FALSE,
       rownames = FALSE, 
-      data = out
+      data = out,options = list(dom = 't')
     ) %>% formatPercentage('Prob', 4) 
   })
   
