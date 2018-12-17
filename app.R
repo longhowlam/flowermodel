@@ -15,6 +15,9 @@ library(reticulate)
 
 ##### Initals / startup code #################################################
 
+# restrict to 3 MB per file
+#options(shiny.maxRequestSize=3*1024^2)
+
 #setup python env en imports
 reticulate::use_condaenv("my_py36")
 torch = import("torch")
@@ -190,17 +193,21 @@ server <- function(input, output, session) {
   output$ResultaatTabel =  renderDataTable({
     
     out = ProcessImage() %>% arrange(desc(Prob))
+    pp = list.files("www", pattern = "imagetaken*")
+    file.remove(paste0("www/",pp))
+    tofile = paste0("imagetaken", paste(sample(letters, size=5), collapse=""), ".jpg")
+   
     
     if (!is.null(input$file1))
     {
       inFile = input$file1
       src = inFile$datapath
-      file.copy(src, "www/picturetaken.jpg" , overwrite = TRUE)
+      file.copy(src, paste0("www/",tofile) , overwrite = TRUE)
     }
     
     out$image_to_score = paste0(
       "<img src='",
-      "picturetaken.jpg",
+      tofile,
       "'",
       "height='80' width='90' </img>"
     )
@@ -210,6 +217,7 @@ server <- function(input, output, session) {
       rownames = FALSE, 
       data = out,options = list(dom = 't')
     ) %>% formatPercentage('Prob', 4) 
+    
   })
   
   observeEvent(input$done, {
