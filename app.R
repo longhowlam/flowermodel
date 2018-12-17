@@ -153,7 +153,9 @@ server <- function(input, output, session) {
          then the picture will be scored using a fine tuned resnet model"), 
       h4("With pytorch a resnet model was finetuned on flower images, 
          then this model is used in this shiny app"), 
-      
+      h4("See my github repo for details:"),
+      tags$a(href="https://github.com/longhowlam/flowermodel", "Git Hub Repo", target="_blank"),
+      h4(" Cheers Longhow Lam"),
       img(SRC="coverimage.png", height = 340)
     )
   })
