@@ -26,7 +26,7 @@ TorchPrediction = function(model, picture){
   probabilities = sm(outputs) 
   P = t(probabilities$detach()$numpy())[,1]
   
-  results = tibble::tibble(Prob = P, flower = c( 'bluebell', 'daffodil', 'lilyvally', 'snowdrop'))
+  results = tibble::tibble(Prob = P, flower = c( 'bluebell', 'crocus', 'daffodil', 'lilyvally', 'snowdrop'))
   results
 }
 
